@@ -27,7 +27,6 @@ import {
   PointerToolButtonProvider,
   PositionExtensionProvider,
   PreDefinedElementsService,
-  PropertyGroupsService,
   RectangleSelectorTool,
   ResizeExtensionProvider,
   SelectionDefaultExtensionProvider,
@@ -44,6 +43,7 @@ import {
 } from '@node-projects/web-component-designer';
 import { BpmnParserService } from './services/BpmnParserService.js';
 import { BpmnPlacementService } from './services/BpmnPlacementService.js';
+import { BpmnPropertyGroupsService } from './services/BpmnPropertyGroupsService.js';
 import { BpmnContextPadExtensionProvider } from './extensions/BpmnContextPadExtension.js';
 import { rerouteConnectedBpmnEdges } from './services/BpmnConnectionRouting.js';
 import { associationEndpointTags, collaborationEndpointTags, edgeTags, flowNodeTags } from './services/bpmnRegistry.js';
@@ -67,7 +67,7 @@ export function createBpmnDesignerServiceContainer() {
   serviceContainer.register('modelCommandService', new DefaultModelCommandService());
   serviceContainer.register('editorTypeService', new DefaultEditorTypeService());
   serviceContainer.register('propertyEditorTypesService', new DefaultPropertyEditorTypesService());
-  serviceContainer.register('propertyGroupsService', new PropertyGroupsService());
+  serviceContainer.register('propertyGroupsService', new BpmnPropertyGroupsService());
   serviceContainer.register('propertyService', new BaseCustomWebComponentPropertiesService(true));
   serviceContainer.register('designItemService', new DesignItemService());
   serviceContainer.register('deletionService', new DeletionService());
