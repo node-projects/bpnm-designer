@@ -1,6 +1,6 @@
 import type { IDesignItem, IHtmlParserService, IHtmlWriterOptions, IHtmlWriterService, ITextWriter, InstanceServiceContainer, ServiceContainer } from '@node-projects/web-component-designer';
 import { DesignItem } from '@node-projects/web-component-designer';
-import { boundsFromWaypoints, decodeWaypoints, encodeWaypoints, formatNumber, getBoundsCenter, isPointInsideBounds, normalizeWaypoints, routeBetweenBounds } from './bpmnGeometry.js';
+import { boundsFromWaypoints, decodeWaypoints, encodeWaypoints, formatNumber, getBoundsCenter, getElementConnectionBoundsFromHostBounds, isPointInsideBounds, normalizeWaypoints, routeBetweenBounds } from './bpmnGeometry.js';
 import { getEventDefinitionElementLocalName, normalizeEventDefinition } from './bpmnEventDefinitions.js';
 import { bpmnTypeToEntry, flowNodeTags, tagToEntry } from './bpmnRegistry.js';
 
@@ -146,12 +146,13 @@ function ensureId(element: Element, prefix: string, usedIds: Set<string>) {
 
 function getBoundsForNode(item: IDesignItem): Bounds {
   const element = item.element as HTMLElement;
-  return {
+  const hostBounds = {
     x: parseCssPixels(element.style.left),
     y: parseCssPixels(element.style.top),
     width: parseCssPixels(element.style.width, element.offsetWidth),
     height: parseCssPixels(element.style.height, element.offsetHeight)
   };
+  return getElementConnectionBoundsFromHostBounds(hostBounds, element);
 }
 
 function getMeta(instanceServiceContainer: InstanceServiceContainer): BpmnDocumentMeta {

@@ -30,6 +30,7 @@ import {
   PreDefinedElementsService,
   PropertyGroupsService,
   RectangleSelectorTool,
+  ResizeExtensionProvider,
   SelectionDefaultExtensionProvider,
   SelectionService,
   SelectorToolButtonProvider,
@@ -89,7 +90,8 @@ export function createBpmnDesignerServiceContainer() {
   serviceContainer.designerExtensions.set(ExtensionType.Permanent, []);
   serviceContainer.designerExtensions.set(ExtensionType.PrimarySelection, [
     new ElementDragTitleExtensionProvider(),
-    new PositionExtensionProvider()
+    new PositionExtensionProvider(),
+    new ResizeExtensionProvider(true)
   ]);
   serviceContainer.designerExtensions.set(ExtensionType.Selection, [
     new SelectionDefaultExtensionProvider()

@@ -6,6 +6,11 @@ type Size = {
   height: string;
 };
 
+type PixelSize = {
+  width: number;
+  height: number;
+};
+
 export abstract class BpmnNodeBase extends BaseCustomWebComponentConstructorAppend {
   static readonly properties = bpmnNodeProperties;
   static readonly observedAttributes = bpmnNodeObservedAttributes;
@@ -101,6 +106,7 @@ export abstract class BpmnNodeBase extends BaseCustomWebComponentConstructorAppe
   private _glyph: HTMLDivElement;
   private _label: HTMLDivElement;
   private _isReady = false;
+  private _resizeObserver: ResizeObserver;
 
   constructor() {
     super();
@@ -108,12 +114,22 @@ export abstract class BpmnNodeBase extends BaseCustomWebComponentConstructorAppe
     this._shape = this._getDomElement<HTMLDivElement>('shape');
     this._glyph = this._getDomElement<HTMLDivElement>('glyph');
     this._label = this._getDomElement<HTMLDivElement>('label');
+    this._resizeObserver = new ResizeObserver(() => {
+      if (this._isReady) {
+        this.renderNode();
+      }
+    });
   }
 
   async ready() {
     this._parseAttributesToProperties();
     this._isReady = true;
     this.renderNode();
+    this._resizeObserver.observe(this);
+  }
+
+  disconnectedCallback() {
+    this._resizeObserver.disconnect();
   }
 
   attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null) {
@@ -131,6 +147,20 @@ export abstract class BpmnNodeBase extends BaseCustomWebComponentConstructorAppe
     }
     if (!this.style.height) {
       this.style.height = defaultSize.height;
+    }
+
+    const minimumSize = this.getMinimumHostSize();
+    if (minimumSize) {
+      const currentWidth = Number.parseFloat(this.style.width || '') || this.offsetWidth || Number.parseFloat(defaultSize.width);
+      const currentHeight = Number.parseFloat(this.style.height || '') || this.offsetHeight || Number.parseFloat(defaultSize.height);
+      const clampedWidth = Math.max(minimumSize.width, currentWidth);
+      const clampedHeight = Math.max(minimumSize.height, currentHeight);
+      if (clampedWidth !== currentWidth) {
+        this.style.width = `${Math.round(clampedWidth)}px`;
+      }
+      if (clampedHeight !== currentHeight) {
+        this.style.height = `${Math.round(clampedHeight)}px`;
+      }
     }
 
     this._shape.removeAttribute('style');
@@ -186,6 +216,10 @@ export abstract class BpmnNodeBase extends BaseCustomWebComponentConstructorAppe
     return '22px';
   }
 
+  protected getMinimumHostSize(): PixelSize | null {
+    return null;
+  }
+
   protected getLabelText() {
     return this.text || this.name || '';
   }
@@ -199,6 +233,26 @@ export abstract class BpmnNodeBase extends BaseCustomWebComponentConstructorAppe
   }
 
   protected afterRender() {
+  }
+
+  public getConnectionBounds() {
+    const hostRect = this.getBoundingClientRect();
+    const shapeRect = this._shape.getBoundingClientRect();
+    if (!hostRect.width || !hostRect.height || !shapeRect.width || !shapeRect.height) {
+      return {
+        x: 0,
+        y: 0,
+        width: this.offsetWidth,
+        height: this.offsetHeight
+      };
+    }
+
+    return {
+      x: shapeRect.left - hostRect.left,
+      y: shapeRect.top - hostRect.top,
+      width: shapeRect.width,
+      height: shapeRect.height
+    };
   }
 
   protected abstract getDefaultSize(): Size;

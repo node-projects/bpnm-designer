@@ -1,6 +1,7 @@
-import { DocumentContainer, PaletteView, PropertyGridWithHeader } from '@node-projects/web-component-designer';
+import { CommandType, DocumentContainer, PaletteView, PropertyGridWithHeader } from '@node-projects/web-component-designer';
 import { CodeViewMonaco } from '@node-projects/web-component-designer-codeview-monaco';
 import { defaultBpmnDocument } from './defaultBpmnDocument.js';
+import { primeBpmnConnectionRouting } from './services/BpmnConnectionRouting.js';
 import { createBpmnDesignerServiceContainer } from './setupBpmnDesignerServiceContainer.js';
 
 type RecentDocument = {
@@ -42,6 +43,12 @@ const openButton = document.getElementById('open-button') as HTMLButtonElement;
 const saveButton = document.getElementById('save-button') as HTMLButtonElement;
 const saveAsButton = document.getElementById('save-as-button') as HTMLButtonElement;
 const sampleButton = document.getElementById('sample-button') as HTMLButtonElement;
+const undoButton = document.getElementById('undo-button') as HTMLButtonElement;
+const redoButton = document.getElementById('redo-button') as HTMLButtonElement;
+const copyButton = document.getElementById('copy-button') as HTMLButtonElement;
+const pasteButton = document.getElementById('paste-button') as HTMLButtonElement;
+const selectAllButton = document.getElementById('select-all-button') as HTMLButtonElement;
+const deleteButton = document.getElementById('delete-button') as HTMLButtonElement;
 
 const serviceContainer = createBpmnDesignerServiceContainer();
 serviceContainer.config.codeViewWidget = CodeViewMonaco;
@@ -147,11 +154,35 @@ const setContent = async (xml: string, name: string, remember = true) => {
   suppressRecentSync = true;
   setFileName(name);
   await documentContainer.setContentAsync(xml);
+  primeBpmnConnectionRouting(documentContainer.instanceServiceContainer);
   suppressRecentSync = false;
   if (remember) {
     rememberDocument(currentDocumentName, documentContainer.content);
   }
 };
+
+const commandButtons = [
+  { button: undoButton, command: CommandType.undo },
+  { button: redoButton, command: CommandType.redo },
+  { button: copyButton, command: CommandType.copy },
+  { button: pasteButton, command: CommandType.paste },
+  { button: selectAllButton, command: CommandType.selectAll },
+  { button: deleteButton, command: CommandType.delete }
+] as const;
+
+const runCommand = (command: CommandType) => {
+  if (!documentContainer.canExecuteCommand({ type: command })) {
+    return;
+  }
+  documentContainer.executeCommand({ type: command });
+  queueMicrotask(syncCommandButtonState);
+};
+
+function syncCommandButtonState() {
+  for (const { button, command } of commandButtons) {
+    button.disabled = !documentContainer.canExecuteCommand({ type: command });
+  }
+}
 
 const loadFile = async (file: File) => {
   const text = await file.text();
@@ -208,6 +239,12 @@ saveButton.onclick = () => {
 saveAsButton.onclick = () => {
   void saveCurrentDocumentAs();
 };
+undoButton.onclick = () => runCommand(CommandType.undo);
+redoButton.onclick = () => runCommand(CommandType.redo);
+copyButton.onclick = () => runCommand(CommandType.copy);
+pasteButton.onclick = () => runCommand(CommandType.paste);
+selectAllButton.onclick = () => runCommand(CommandType.selectAll);
+deleteButton.onclick = () => runCommand(CommandType.delete);
 fileInput.onchange = async () => {
   const file = fileInput.files?.[0];
   if (!file) {
@@ -281,7 +318,27 @@ documentContainer.instanceServiceContainer.onContentChanged.on(() => {
   recentSyncTimer = window.setTimeout(() => rememberDocument(currentDocumentName, documentContainer.content), 250);
 });
 
+documentContainer.onContentChanged.on(event => {
+  if (event.source === 'code') {
+    primeBpmnConnectionRouting(documentContainer.instanceServiceContainer);
+  }
+  syncCommandButtonState();
+});
+
+documentContainer.instanceServiceContainer.selectionService.onSelectionChanged.on(() => {
+  syncCommandButtonState();
+});
+
+documentContainer.instanceServiceContainer.undoService.onTransaction.on(() => {
+  syncCommandButtonState();
+});
+
+window.addEventListener('focus', () => {
+  syncCommandButtonState();
+});
+
 renderRecentDocuments();
 
 const initialRecentDocument = recentDocuments[0];
 await setContent(initialRecentDocument?.content ?? defaultBpmnDocument, initialRecentDocument?.name ?? 'sample.bpmn');
+syncCommandButtonState();

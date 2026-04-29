@@ -1,6 +1,6 @@
 import { DesignItem, EventNames, IDesignerCanvas, ITool, InsertAction, OverlayLayer, ServiceContainer } from '@node-projects/web-component-designer';
 import { tagToEntry } from '../services/bpmnRegistry.js';
-import { encodeWaypoints, getAnchor, pathDataFromWaypoints, routeBetweenBounds, routeBetweenPoints } from '../services/bpmnGeometry.js';
+import { encodeWaypoints, getAnchor, getElementConnectionBounds, pathDataFromWaypoints, routeBetweenBounds, routeBetweenPoints } from '../services/bpmnGeometry.js';
 
 type Rect = {
   x: number;
@@ -106,7 +106,7 @@ export class ConnectNodesTool implements ITool {
     }
 
     this._sourceElement = source;
-    this._sourceBounds = designerCanvas.getNormalizedElementCoordinates(source);
+    this._sourceBounds = getElementConnectionBounds(designerCanvas, source);
     this._captureElement = event.target as Element;
     this._pointerId = event.pointerId;
     this._captureElement?.setPointerCapture?.(this._pointerId);
@@ -133,7 +133,7 @@ export class ConnectNodesTool implements ITool {
     const pointer = designerCanvas.getNormalizedEventCoordinates(event);
     const target = findConnectableTarget(event, currentElement, this.options.allowedTags);
     const waypoints = target && target !== this._sourceElement
-      ? routeBetweenBounds(this._sourceBounds, designerCanvas.getNormalizedElementCoordinates(target))
+      ? routeBetweenBounds(this._sourceBounds, getElementConnectionBounds(designerCanvas, target))
       : routeBetweenPoints(getAnchor(this._sourceBounds, pointer), pointer);
 
     this._previewPath.setAttribute('d', pathDataFromWaypoints(waypoints));
@@ -154,7 +154,7 @@ export class ConnectNodesTool implements ITool {
       return;
     }
 
-    const waypoints = routeBetweenBounds(this._sourceBounds, designerCanvas.getNormalizedElementCoordinates(target));
+    const waypoints = routeBetweenBounds(this._sourceBounds, getElementConnectionBounds(designerCanvas, target));
     const edge = document.createElement(this.options.tagName) as HTMLElement;
     edge.style.position = 'absolute';
     edge.style.zIndex = '4';

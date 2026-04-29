@@ -1,5 +1,5 @@
 import { AbstractExtension, DesignItem, type IDesignItem, type IDesignerCanvas, type IExtensionManager } from '@node-projects/web-component-designer';
-import { boundsFromWaypoints, decodeWaypoints, routeBetweenBounds } from '../services/bpmnGeometry.js';
+import { boundsFromWaypoints, decodeWaypoints, getElementConnectionBounds, routeBetweenBounds } from '../services/bpmnGeometry.js';
 import { edgeTags, tagToEntry } from '../services/bpmnRegistry.js';
 
 type ReplacementOption = {
@@ -58,8 +58,8 @@ function createTemplate() {
     <div class="pad-shell" style="background: transparent; box-shadow: none;">
       <style>
         .pad-shell {
-          width: 348px;
-          padding: 12px 0 0 24px;
+          width: max-content;
+          padding: 0 0 0 16px;
           overflow: visible;
           pointer-events: auto;
           user-select: none;
@@ -73,14 +73,13 @@ function createTemplate() {
         .pad {
           position: relative;
           display: flex;
-          flex-direction: column;
-          gap: 8px;
-          width: 320px;
-          padding: 10px 12px;
+          align-items: center;
+          gap: 6px;
+          padding: 6px;
           border-radius: 14px;
           border: 1px solid rgba(23, 49, 45, 0.14);
-          background: linear-gradient(180deg, rgba(250, 254, 252, 0.98) 0%, rgba(236, 247, 243, 0.96) 100%);
-          box-shadow: 0 18px 34px rgba(15, 38, 34, 0.2);
+          background: linear-gradient(180deg, rgba(252, 255, 253, 0.98) 0%, rgba(238, 248, 245, 0.97) 100%);
+          box-shadow: 0 14px 28px rgba(15, 38, 34, 0.16);
           color: #142523;
           font: 12px/1.2 "Segoe UI Variable Text", "Segoe UI", sans-serif;
           backdrop-filter: blur(10px);
@@ -89,9 +88,9 @@ function createTemplate() {
         .pad::before {
           content: '';
           position: absolute;
-          left: -16px;
-          top: 21px;
-          width: 16px;
+          left: -12px;
+          top: 17px;
+          width: 12px;
           height: 2px;
           border-radius: 999px;
           background: linear-gradient(90deg, rgba(50, 103, 92, 0.6) 0%, rgba(203, 225, 218, 0.95) 100%);
@@ -100,28 +99,21 @@ function createTemplate() {
         .pad::after {
           content: '';
           position: absolute;
-          left: -25px;
-          top: 15px;
-          width: 10px;
-          height: 10px;
+          left: -18px;
+          top: 11px;
+          width: 8px;
+          height: 8px;
           border-radius: 999px;
           border: 2px solid #2a6559;
           background: #f9fffc;
-          box-shadow: 0 0 0 4px rgba(232, 245, 240, 0.95);
-        }
-
-        .actions,
-        .controls {
-          display: flex;
-          align-items: center;
-          gap: 8px;
+          box-shadow: 0 0 0 3px rgba(232, 245, 240, 0.95);
         }
 
         .button {
-          width: 34px;
-          height: 34px;
+          width: 28px;
+          height: 28px;
           border: 1px solid rgba(24, 40, 38, 0.16);
-          border-radius: 11px;
+          border-radius: 9px;
           background: linear-gradient(180deg, #ffffff 0%, #f2f8f6 100%);
           box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
           display: inline-flex;
@@ -143,8 +135,8 @@ function createTemplate() {
         }
 
         .button svg {
-          width: 16px;
-          height: 16px;
+          width: 14px;
+          height: 14px;
           stroke: #1b3632;
           fill: none;
           stroke-width: 1.8;
@@ -152,88 +144,69 @@ function createTemplate() {
           stroke-linejoin: round;
         }
 
-        .field {
-          flex: 1;
-          min-width: 0;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 8px;
-          padding: 0 10px;
-          height: 34px;
-          border-radius: 11px;
-          border: 1px solid rgba(24, 40, 38, 0.12);
-          background: rgba(255, 255, 255, 0.94);
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-          color: #38544e;
-          cursor: pointer;
+        .color-button {
+          position: relative;
+          overflow: hidden;
         }
 
-        .field-label {
-          white-space: nowrap;
-          font-size: 11px;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
-          color: #4a655f;
+        .swatch {
+          width: 14px;
+          height: 14px;
+          border-radius: 999px;
+          border: 2px solid rgba(23, 49, 45, 0.16);
+          box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.64);
         }
 
-        .field input[type="color"] {
-          width: 24px;
-          height: 24px;
+        .swatch.stroke {
+          background: transparent;
+        }
+
+        .color-input {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          opacity: 0;
           border: 0;
           padding: 0;
           background: transparent;
           cursor: pointer;
         }
 
-        .field input[type="color"]::-webkit-color-swatch-wrapper {
-          padding: 0;
-        }
-
-        .field input[type="color"]::-webkit-color-swatch,
-        .field input[type="color"]::-moz-color-swatch {
-          border: 2px solid rgba(23, 49, 45, 0.12);
-          border-radius: 999px;
-        }
-
         .replace {
-          flex: 1;
-          min-width: 0;
-          height: 34px;
-          border-radius: 11px;
+          min-width: 122px;
+          height: 28px;
+          border-radius: 9px;
           border: 1px solid rgba(24, 40, 38, 0.12);
           background: rgba(255, 255, 255, 0.94);
-          padding: 0 36px 0 12px;
+          padding: 0 28px 0 10px;
           color: #142523;
+          font-size: 12px;
           appearance: none;
           background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(241, 248, 245, 0.98) 100%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23245149' d='M0 0h10L5 6z'/%3E%3C/svg%3E");
           background-repeat: no-repeat, no-repeat;
-          background-position: 0 0, calc(100% - 12px) 50%;
+          background-position: 0 0, calc(100% - 10px) 50%;
           cursor: pointer;
         }
       </style>
       <div class="pad">
-        <div class="actions">
-          <button id="delete" class="button" type="button" title="Delete">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"></path><path d="M9 7V4h6v3"></path><path d="M7 7l1 13h8l1-13"></path></svg>
-          </button>
-          <button id="annotation" class="button" type="button" title="Add text annotation">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4v16"></path><path d="M8 6h10"></path><path d="M8 10h8"></path><path d="M8 14h10"></path></svg>
-          </button>
-          <label id="fill-field" class="field">
-            <span class="field-label">Fill</span>
-            <input id="fill-color" type="color" value="#ffffff" />
-          </label>
-          <label class="field">
-            <span class="field-label">Stroke</span>
-            <input id="stroke-color" type="color" value="#182826" />
-          </label>
-        </div>
-        <div id="replace-row" class="controls">
-          <select id="replace" class="replace">
-            <option value="">Change element</option>
-          </select>
-        </div>
+        <button id="annotation" class="button" type="button" title="Add text annotation">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4v16"></path><path d="M8 6h10"></path><path d="M8 10h8"></path><path d="M8 14h10"></path></svg>
+        </button>
+        <button id="delete" class="button" type="button" title="Delete">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"></path><path d="M9 7V4h6v3"></path><path d="M7 7l1 13h8l1-13"></path></svg>
+        </button>
+        <label id="fill-field" class="button color-button" title="Fill color">
+          <span id="fill-swatch" class="swatch"></span>
+          <input id="fill-color" class="color-input" type="color" value="#ffffff" />
+        </label>
+        <label id="stroke-field" class="button color-button" title="Stroke color">
+          <span id="stroke-swatch" class="swatch stroke"></span>
+          <input id="stroke-color" class="color-input" type="color" value="#182826" />
+        </label>
+        <select id="replace" class="replace" title="Change element type">
+          <option value="">Change</option>
+        </select>
       </div>
     </div>
   `;
@@ -352,7 +325,12 @@ function getDesignItemBounds(designItem: IDesignItem) {
       return boundsFromWaypoints(waypoints);
     }
   }
-  return designItem.instanceServiceContainer.designerCanvas.getNormalizedElementCoordinates(designItem.element);
+  return getElementConnectionBounds(designItem.instanceServiceContainer.designerCanvas, designItem.element);
+}
+
+function updateSwatch(swatch: HTMLElement, value: string, kind: 'fill' | 'stroke') {
+  swatch.style.background = kind === 'fill' ? value : 'transparent';
+  swatch.style.borderColor = value;
 }
 
 function setAbsoluteBounds(element: HTMLElement, bounds: { x: number; y: number; width: number; height: number }) {
@@ -410,6 +388,8 @@ function appendTextAnnotation(designItem: IDesignItem) {
     associationElement.setAttribute('source-ref', designItem.element.getAttribute('bpmn-id') ?? '');
     associationElement.setAttribute('target-ref', annotationElement.getAttribute('bpmn-id') ?? '');
     associationElement.setAttribute('waypoints', routeBetweenBounds(sourceBounds, annotationBounds).map(point => `${Math.round(point.x)},${Math.round(point.y)}`).join(' '));
+    associationElement.setAttribute('data-linked-annotation-offset-x', `${Math.round(annotationBounds.x - sourceBounds.x)}`);
+    associationElement.setAttribute('data-linked-annotation-offset-y', `${Math.round(annotationBounds.y - sourceBounds.y)}`);
     if (processRef) {
       associationElement.setAttribute('process-ref', processRef);
     }
@@ -488,13 +468,16 @@ export class BpmnContextPadExtension extends AbstractExtension {
   }
 
   extend() {
-    this._toolbar = this.createToolbar(createTemplate(), 356, 110);
+    this._toolbar = this.createToolbar(createTemplate(), 254, 42);
     this._toolbar.style.pointerEvents = 'auto';
     const toolbarRoot = this._toolbar.children.item(0) as HTMLElement | null;
     if (toolbarRoot) {
       toolbarRoot.style.pointerEvents = 'auto';
+      toolbarRoot.addEventListener('pointerdown', event => event.stopPropagation());
       toolbarRoot.addEventListener('click', event => event.stopPropagation());
+      toolbarRoot.addEventListener('dblclick', event => event.stopPropagation());
       toolbarRoot.addEventListener('pointerup', event => event.stopPropagation());
+      toolbarRoot.addEventListener('contextmenu', event => event.stopPropagation());
     }
 
     const deleteButton = this._toolbar.getById<HTMLButtonElement>('delete');
@@ -508,28 +491,37 @@ export class BpmnContextPadExtension extends AbstractExtension {
       appendTextAnnotation(this.extendedItem);
     };
 
-    const fillField = this._toolbar.getById<HTMLDivElement>('fill-field');
+    const fillField = this._toolbar.getById<HTMLLabelElement>('fill-field');
     const fillInput = this._toolbar.getById<HTMLInputElement>('fill-color');
+    const fillSwatch = this._toolbar.getById<HTMLSpanElement>('fill-swatch');
     if (isEdgeDesignItem(this.extendedItem)) {
       fillField.style.display = 'none';
     } else {
       fillInput.value = getVisualColor(this.extendedItem, 'fill');
-      fillInput.onchange = () => {
+      updateSwatch(fillSwatch, fillInput.value, 'fill');
+      fillInput.oninput = () => {
+        updateSwatch(fillSwatch, fillInput.value, 'fill');
         updateBpmnColors(this.extendedItem, { fillColor: fillInput.value });
       };
     }
 
+    const strokeField = this._toolbar.getById<HTMLLabelElement>('stroke-field');
     const strokeInput = this._toolbar.getById<HTMLInputElement>('stroke-color');
+    const strokeSwatch = this._toolbar.getById<HTMLSpanElement>('stroke-swatch');
     strokeInput.value = getVisualColor(this.extendedItem, 'stroke');
-    strokeInput.onchange = () => {
+    updateSwatch(strokeSwatch, strokeInput.value, 'stroke');
+    if (isEdgeDesignItem(this.extendedItem)) {
+      strokeField.title = 'Line color';
+    }
+    strokeInput.oninput = () => {
+      updateSwatch(strokeSwatch, strokeInput.value, 'stroke');
       updateBpmnColors(this.extendedItem, { strokeColor: strokeInput.value });
     };
 
-    const replaceRow = this._toolbar.getById<HTMLDivElement>('replace-row');
     const replaceSelect = this._toolbar.getById<HTMLSelectElement>('replace');
     const options = getReplacementOptions(this.extendedItem.element.localName);
     if (!options.length) {
-      replaceRow.style.display = 'none';
+      replaceSelect.style.display = 'none';
     } else {
       for (const option of options) {
         const optionElement = document.createElement('option');
@@ -553,8 +545,8 @@ export class BpmnContextPadExtension extends AbstractExtension {
 
     const bounds = getDesignItemBounds(this.extendedItem);
     this._toolbar.updatePosition({
-      x: bounds.x + bounds.width - 18 / this.designerCanvas.zoomFactor,
-      y: bounds.y - 18 / this.designerCanvas.zoomFactor
+      x: bounds.x + bounds.width + 10 / this.designerCanvas.zoomFactor,
+      y: bounds.y - 8 / this.designerCanvas.zoomFactor
     });
   }
 

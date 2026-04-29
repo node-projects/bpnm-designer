@@ -7,6 +7,8 @@ type NodeConfig = {
   tag: string;
   width: string;
   height: string;
+  minWidth?: number;
+  minHeight?: number;
   glyph: string | ((host: BpmnNodeBase) => string);
   radius?: string;
   borderWidth?: string;
@@ -43,7 +45,7 @@ function defineNode(config: NodeConfig) {
     }
 
     protected override getBackground() {
-      return config.background ?? '#ffffff';
+      return this.fillColor || config.background || '#ffffff';
     }
 
     protected override getBorderRadius() {
@@ -58,12 +60,22 @@ function defineNode(config: NodeConfig) {
       return config.glyphColor ?? this.getStrokeColor();
     }
 
+    protected override getMinimumHostSize() {
+      if (config.minWidth || config.minHeight) {
+        return {
+          width: config.minWidth ?? Number.parseFloat(config.width),
+          height: config.minHeight ?? Number.parseFloat(config.height)
+        };
+      }
+      return super.getMinimumHostSize();
+    }
+
     protected override getShapeHeight() {
       return config.shapeHeight ?? super.getShapeHeight();
     }
 
     protected override getStrokeColor() {
-      return config.stroke ?? '#182826';
+      return this.strokeColor || config.stroke || '#182826';
     }
 
     protected override afterRender() {
@@ -82,7 +94,10 @@ function defineConnection(config: ConnectionConfig) {
     static readonly properties = bpmnConnectionProperties;
 
     protected override getMarkerFill() {
-      return config.markerFill ?? config.stroke;
+      if (config.markerFill === 'none') {
+        return 'none';
+      }
+      return this.strokeColor || config.markerFill || config.stroke;
     }
 
     protected override getMarkerPath() {
@@ -90,11 +105,11 @@ function defineConnection(config: ConnectionConfig) {
     }
 
     protected override getMarkerStroke() {
-      return config.markerStroke ?? config.stroke;
+      return this.strokeColor || config.markerStroke || config.stroke;
     }
 
     protected override getStrokeColor() {
-      return config.stroke;
+      return this.strokeColor || config.stroke;
     }
 
     protected override getStrokeDashArray() {
@@ -137,6 +152,34 @@ const throwGlyph = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 12
 const dataObjectGlyph = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5h8l3 3V19H7z"></path><path d="M15 4.5V8h3M9 12h6M9 15h6"></path></svg>`;
 const dataStoreGlyph = `<svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6.5" rx="6" ry="2.5"></ellipse><path d="M6 6.5v10c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5v-10"></path><path d="M6 11c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5"></path></svg>`;
 
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function applyGatewayLayout(shape: HTMLDivElement, glyph: HTMLDivElement, label: HTMLDivElement, host: HTMLElement) {
+  const hostWidth = host.clientWidth || Number.parseFloat(host.style.width || '') || 88;
+  const hostHeight = host.clientHeight || Number.parseFloat(host.style.height || '') || 112;
+  const labelSpace = label.style.display !== 'none' ? clamp(Math.round(hostHeight * 0.28), 24, 34) : 0;
+  const squareSize = clamp(Math.min(hostWidth - 4, hostHeight - labelSpace - 4), 60, 104);
+  const glyphSize = clamp(Math.round(squareSize * 0.38), 18, 28);
+  const labelFontSize = clamp(Math.round(squareSize * 0.17), 10, 13);
+
+  shape.style.width = `${squareSize}px`;
+  shape.style.height = `${squareSize}px`;
+  shape.style.marginTop = '0';
+  shape.style.flex = '0 0 auto';
+  shape.style.transform = 'rotate(45deg)';
+  glyph.style.width = `${glyphSize}px`;
+  glyph.style.height = `${glyphSize}px`;
+  glyph.style.transform = 'rotate(-45deg)';
+
+  if (label.style.display !== 'none') {
+    label.style.fontSize = `${labelFontSize}px`;
+    label.style.lineHeight = '1.14';
+    label.style.maxWidth = `${Math.max(hostWidth, squareSize)}px`;
+  }
+}
+
 defineNode({
   tag: 'bpmn-intermediate-catch-event',
   width: '56px',
@@ -144,7 +187,8 @@ defineNode({
   glyph: host => getEventDefinitionGlyph(host.eventDefinition, catchGlyph),
   radius: '999px',
   afterRender(shape) {
-    shape.style.boxShadow = 'inset 0 0 0 4px white, inset 0 0 0 6px #182826, 0 8px 16px rgba(20, 37, 35, 0.08)';
+    const stroke = getComputedStyle(shape).borderColor;
+    shape.style.boxShadow = `inset 0 0 0 4px white, inset 0 0 0 6px ${stroke}, 0 8px 16px rgba(20, 37, 35, 0.08)`;
   }
 });
 
@@ -155,7 +199,8 @@ defineNode({
   glyph: host => getEventDefinitionGlyph(host.eventDefinition, throwGlyph),
   radius: '999px',
   afterRender(shape) {
-    shape.style.boxShadow = 'inset 0 0 0 4px white, inset 0 0 0 6px #182826, 0 8px 16px rgba(20, 37, 35, 0.08)';
+    const stroke = getComputedStyle(shape).borderColor;
+    shape.style.boxShadow = `inset 0 0 0 4px white, inset 0 0 0 6px ${stroke}, 0 8px 16px rgba(20, 37, 35, 0.08)`;
   }
 });
 
@@ -166,7 +211,8 @@ defineNode({
   glyph: host => getEventDefinitionGlyph(host.eventDefinition, catchGlyph),
   radius: '999px',
   afterRender(shape) {
-    shape.style.boxShadow = 'inset 0 0 0 4px white, inset 0 0 0 6px #182826, 0 8px 16px rgba(20, 37, 35, 0.08)';
+    const stroke = getComputedStyle(shape).borderColor;
+    shape.style.boxShadow = `inset 0 0 0 4px white, inset 0 0 0 6px ${stroke}, 0 8px 16px rgba(20, 37, 35, 0.08)`;
     shape.style.borderStyle = 'dashed';
   }
 });
@@ -185,15 +231,13 @@ defineNode({
   tag: 'bpmn-exclusive-gateway',
   width: '92px',
   height: '120px',
+  minWidth: 84,
+  minHeight: 108,
   glyph: exclusiveGlyph,
   radius: '8px',
   shapeHeight: '72px',
-  afterRender(shape, glyph) {
-    shape.style.width = '72px';
-    shape.style.height = '72px';
-    shape.style.marginTop = '2px';
-    shape.style.transform = 'rotate(45deg)';
-    glyph.style.transform = 'rotate(-45deg)';
+  afterRender(shape, glyph, label, host) {
+    applyGatewayLayout(shape, glyph, label, host as HTMLElement);
   }
 });
 
@@ -201,15 +245,13 @@ defineNode({
   tag: 'bpmn-parallel-gateway',
   width: '92px',
   height: '120px',
+  minWidth: 84,
+  minHeight: 108,
   glyph: parallelGlyph,
   radius: '8px',
   shapeHeight: '72px',
-  afterRender(shape, glyph) {
-    shape.style.width = '72px';
-    shape.style.height = '72px';
-    shape.style.marginTop = '2px';
-    shape.style.transform = 'rotate(45deg)';
-    glyph.style.transform = 'rotate(-45deg)';
+  afterRender(shape, glyph, label, host) {
+    applyGatewayLayout(shape, glyph, label, host as HTMLElement);
   }
 });
 
@@ -217,15 +259,13 @@ defineNode({
   tag: 'bpmn-inclusive-gateway',
   width: '92px',
   height: '120px',
+  minWidth: 84,
+  minHeight: 108,
   glyph: inclusiveGlyph,
   radius: '8px',
   shapeHeight: '72px',
-  afterRender(shape, glyph) {
-    shape.style.width = '72px';
-    shape.style.height = '72px';
-    shape.style.marginTop = '2px';
-    shape.style.transform = 'rotate(45deg)';
-    glyph.style.transform = 'rotate(-45deg)';
+  afterRender(shape, glyph, label, host) {
+    applyGatewayLayout(shape, glyph, label, host as HTMLElement);
   }
 });
 
@@ -233,15 +273,13 @@ defineNode({
   tag: 'bpmn-event-based-gateway',
   width: '92px',
   height: '120px',
+  minWidth: 84,
+  minHeight: 108,
   glyph: eventBasedGlyph,
   radius: '8px',
   shapeHeight: '72px',
-  afterRender(shape, glyph) {
-    shape.style.width = '72px';
-    shape.style.height = '72px';
-    shape.style.marginTop = '2px';
-    shape.style.transform = 'rotate(45deg)';
-    glyph.style.transform = 'rotate(-45deg)';
+  afterRender(shape, glyph, label, host) {
+    applyGatewayLayout(shape, glyph, label, host as HTMLElement);
   }
 });
 
@@ -264,16 +302,44 @@ defineNode({
   height: '116px',
   glyph: '',
   radius: '0px',
-  background: 'rgba(255, 255, 255, 0.72)',
+  background: 'transparent',
   shapeHeight: '100%',
   afterRender(shape, glyph, label) {
+    const lineColor = 'rgba(51, 65, 85, 0.48)';
+    const ensureLine = (name: string, styles: Partial<CSSStyleDeclaration>) => {
+      let line = shape.querySelector(`[data-annotation-line="${name}"]`) as HTMLDivElement | null;
+      if (!line) {
+        line = document.createElement('div');
+        line.dataset.annotationLine = name;
+        line.style.position = 'absolute';
+        line.style.pointerEvents = 'none';
+        shape.appendChild(line);
+      }
+      line.style.backgroundColor = lineColor;
+      Object.assign(line.style, styles);
+    };
+
     glyph.style.display = 'none';
-    shape.style.borderRight = '0';
+    shape.style.border = '0';
     shape.style.borderRadius = '0';
+    shape.style.boxShadow = 'none';
+    shape.style.position = 'relative';
+    shape.style.pointerEvents = 'auto';
+    shape.style.backgroundColor = 'transparent';
+    shape.style.backgroundImage = 'none';
+    shape.style.backgroundPosition = 'initial';
+    shape.style.backgroundRepeat = 'initial';
+    shape.style.backgroundSize = 'initial';
+    ensureLine('left', { left: '0', top: '0', width: '2px', height: '100%' });
+    ensureLine('top', { left: '0', top: '0', width: '28px', height: '2px' });
+    ensureLine('bottom', { left: '0', bottom: '0', width: '28px', height: '2px' });
     label.style.position = 'absolute';
     label.style.left = '18px';
     label.style.top = '18px';
     label.style.width = 'calc(100% - 32px)';
+    label.style.color = '#1f2937';
+    label.style.fontStyle = 'italic';
+    label.style.fontSize = '12px';
     label.style.textAlign = 'left';
   }
 });
@@ -286,10 +352,10 @@ defineNode({
   radius: '18px',
   background: 'rgba(255, 255, 255, 0.12)',
   shapeHeight: '100%',
-  afterRender(shape, glyph, label) {
+  afterRender(shape, glyph, label, host) {
     glyph.style.display = 'none';
     shape.style.borderStyle = 'dashed';
-    shape.style.background = 'rgba(11, 122, 117, 0.04)';
+    shape.style.background = (host as HTMLElement).getAttribute('fill-color') || 'rgba(11, 122, 117, 0.04)';
     label.style.position = 'absolute';
     label.style.left = '14px';
     label.style.top = '12px';
@@ -306,9 +372,9 @@ defineNode({
   radius: '14px',
   background: 'rgba(255, 255, 255, 0.38)',
   shapeHeight: '100%',
-  afterRender(shape, glyph, label) {
+  afterRender(shape, glyph, label, host) {
     glyph.style.display = 'none';
-    shape.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.84), rgba(217,232,223,0.55))';
+    shape.style.background = (host as HTMLElement).getAttribute('fill-color') || 'linear-gradient(180deg, rgba(255,255,255,0.84), rgba(217,232,223,0.55))';
     label.style.position = 'absolute';
     label.style.left = '16px';
     label.style.top = '16px';
@@ -326,9 +392,9 @@ defineNode({
   radius: '10px',
   background: 'rgba(255, 255, 255, 0.24)',
   shapeHeight: '100%',
-  afterRender(shape, glyph, label) {
+  afterRender(shape, glyph, label, host) {
     glyph.style.display = 'none';
-    shape.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.58), rgba(221,231,223,0.42))';
+    shape.style.background = (host as HTMLElement).getAttribute('fill-color') || 'linear-gradient(180deg, rgba(255,255,255,0.58), rgba(221,231,223,0.42))';
     label.style.position = 'absolute';
     label.style.left = '14px';
     label.style.top = '12px';
