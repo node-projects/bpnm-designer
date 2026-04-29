@@ -7,7 +7,6 @@ import {
   DefaultPropertyEditorTypesService,
   DefaultInstanceService,
   DefaultModelCommandService,
-  DefaultPlacementService,
   DeletionService,
   DesignItemDocumentPositionService,
   DesignItemService,
@@ -44,6 +43,7 @@ import {
   ZoomToolButtonProvider
 } from '@node-projects/web-component-designer';
 import { BpmnParserService } from './services/BpmnParserService.js';
+import { BpmnPlacementService } from './services/BpmnPlacementService.js';
 import { BpmnContextPadExtensionProvider } from './extensions/BpmnContextPadExtension.js';
 import { rerouteConnectedBpmnEdges } from './services/BpmnConnectionRouting.js';
 import { associationEndpointTags, collaborationEndpointTags, edgeTags, flowNodeTags } from './services/bpmnRegistry.js';
@@ -57,7 +57,7 @@ export function createBpmnDesignerServiceContainer() {
   const parserService = new BpmnParserService();
 
   serviceContainer.register('instanceService', new DefaultInstanceService());
-  serviceContainer.register('containerService', new DefaultPlacementService());
+  serviceContainer.register('containerService', new BpmnPlacementService());
   serviceContainer.register('snaplinesProviderService', new SnaplinesProviderService());
   serviceContainer.register('htmlParserService', parserService);
   serviceContainer.register('htmlWriterService', parserService);
@@ -90,7 +90,12 @@ export function createBpmnDesignerServiceContainer() {
 
   serviceContainer.designerExtensions.set(ExtensionType.Permanent, []);
   serviceContainer.designerExtensions.set(ExtensionType.PrimarySelection, [
-    new ElementDragTitleExtensionProvider(),
+    new class extends ElementDragTitleExtensionProvider {
+      override shouldExtend(extensionManager: any, designerView: any, designItem: any) {
+        if (edgeTags.has(designItem.element?.localName)) return false;
+        return super.shouldExtend(extensionManager, designerView, designItem);
+      }
+    }(),
     new class extends PositionExtensionProvider {
       override shouldExtend(extensionManager: any, designerView: any, designItem: any) {
         if (edgeTags.has(designItem.element?.localName)) return false;
