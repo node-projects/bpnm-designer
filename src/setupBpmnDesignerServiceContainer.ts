@@ -46,6 +46,7 @@ import { BpmnPlacementService } from './services/BpmnPlacementService.js';
 import { BpmnPropertyGroupsService } from './services/BpmnPropertyGroupsService.js';
 import { BpmnContextPadExtensionProvider } from './extensions/BpmnContextPadExtension.js';
 import { rerouteConnectedBpmnEdges } from './services/BpmnConnectionRouting.js';
+import { normalizeBpmnIdsForAddedItems, reconcileCtrlDragIdAssignment } from './services/BpmnIdNormalization.js';
 import { associationEndpointTags, collaborationEndpointTags, edgeTags, flowNodeTags } from './services/bpmnRegistry.js';
 import { ConnectNodesTool, associationIcon, dataInputAssociationIcon, dataOutputAssociationIcon, messageFlowIcon, sequenceFlowIcon } from './toolbar/ConnectNodesTool.js';
 import { BpmnConnectionEditExtensionProvider } from './extensions/BpmnConnectionEditExtension.js';
@@ -82,10 +83,23 @@ export function createBpmnDesignerServiceContainer() {
     const previousRaiseDesignItemsChanged = designerCanvas.raiseDesignItemsChanged.bind(designerCanvas);
     designerCanvas.raiseDesignItemsChanged = (designItems, action, operationFinished) => {
       previousRaiseDesignItemsChanged(designItems, action, operationFinished);
+
+      if (action === 'place' && operationFinished) {
+        reconcileCtrlDragIdAssignment(instanceServiceContainer, designItems);
+      }
+
       if (action === 'place' || action === 'resize') {
         rerouteConnectedBpmnEdges(instanceServiceContainer, designItems, operationFinished);
       }
     };
+
+    instanceServiceContainer.onContentChanged.on(changes => {
+      for (const change of changes) {
+        if (change.changeType === 'added') {
+          normalizeBpmnIdsForAddedItems(instanceServiceContainer, change.designItems);
+        }
+      }
+    });
   });
 
   serviceContainer.designerExtensions.set(ExtensionType.Permanent, []);
