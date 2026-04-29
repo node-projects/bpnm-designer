@@ -12,7 +12,6 @@ class BpmnConnectionEditExtension extends AbstractExtension implements IDesigner
 
   // Drag state
   private _dragIndex: number | null = null;
-  private _dragIsMidpoint = false;
   private _waypoints: WaypointPoint[] = [];
 
   constructor(extensionManager: IExtensionManager, designerView: IDesignerCanvas, extendedItem: IDesignItem) {
@@ -101,7 +100,6 @@ class BpmnConnectionEditExtension extends AbstractExtension implements IDesigner
     event.preventDefault();
     this._waypoints = decodeWaypoints(this.extendedItem.element.getAttribute('waypoints'));
     this._dragIndex = index;
-    this._dragIsMidpoint = false;
     (event.target as Element).setPointerCapture(event.pointerId);
   }
 
@@ -117,7 +115,6 @@ class BpmnConnectionEditExtension extends AbstractExtension implements IDesigner
     existing.splice(segmentIndex + 1, 0, mid);
     this._waypoints = existing;
     this._dragIndex = segmentIndex + 1;
-    this._dragIsMidpoint = true;
     // Preview immediately
     const conn = this.extendedItem.element as BpmnConnectionBase;
     conn.setPreviewWaypoints(encodeWaypoints(this._waypoints));
@@ -159,7 +156,6 @@ class BpmnConnectionEditExtension extends AbstractExtension implements IDesigner
     }
 
     this._dragIndex = null;
-    this._dragIsMidpoint = false;
     this.refresh({});
   }
 

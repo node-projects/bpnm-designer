@@ -11,24 +11,19 @@ function getMovableItems(items: IDesignItem[]) {
 }
 
 export class BpmnPlacementService extends DefaultPlacementService {
-  override serviceForContainer(container: IDesignItem, containerStyle: CSSStyleDeclaration, item?: IDesignItem): boolean {
+  serviceForContainer(container: IDesignItem, containerStyle: CSSStyleDeclaration, item?: IDesignItem): boolean {
     if (isEdgeItem(item)) {
       return false;
     }
     return super.serviceForContainer(container, containerStyle, item);
   }
 
-  override startPlacementAllowed(event: MouseEvent, designerCanvas: IDesignerCanvas, container: IDesignItem, items: IDesignItem[]): boolean {
+  startPlacementAllowed(_event: MouseEvent, _designerCanvas: IDesignerCanvas, _container: IDesignItem, items: IDesignItem[]): boolean {
     const movableItems = getMovableItems(items);
-    if (!movableItems.length) {
-      return false;
-    }
-    return super.startPlacementAllowed
-      ? super.startPlacementAllowed(event, designerCanvas, container, movableItems)
-      : true;
+    return movableItems.length > 0;
   }
 
-  override canEnter(container: IDesignItem, items: IDesignItem[]): boolean {
+  canEnter(container: IDesignItem, items: IDesignItem[]): boolean {
     const movableItems = getMovableItems(items);
     if (!movableItems.length) {
       return false;
@@ -36,7 +31,7 @@ export class BpmnPlacementService extends DefaultPlacementService {
     return super.canEnter(container, movableItems);
   }
 
-  override canLeave(container: IDesignItem, items: IDesignItem[]): boolean {
+  canLeave(container: IDesignItem, items: IDesignItem[]): boolean {
     const movableItems = getMovableItems(items);
     if (!movableItems.length) {
       return false;
@@ -44,7 +39,7 @@ export class BpmnPlacementService extends DefaultPlacementService {
     return super.canLeave(container, movableItems);
   }
 
-  override placePoint(event: MouseEvent, designerCanvas: IDesignerCanvas, container: IDesignItem, startPoint: IPoint, offsetInControl: IPoint, newPoint: IPoint, items: IDesignItem[]): IPoint {
+  placePoint(event: MouseEvent, designerCanvas: IDesignerCanvas, container: IDesignItem, startPoint: IPoint, offsetInControl: IPoint, newPoint: IPoint, items: IDesignItem[]): IPoint {
     const movableItems = getMovableItems(items);
     if (!movableItems.length) {
       return newPoint;
@@ -52,7 +47,7 @@ export class BpmnPlacementService extends DefaultPlacementService {
     return super.placePoint(event, designerCanvas, container, startPoint, offsetInControl, newPoint, movableItems);
   }
 
-  override startPlace(event: MouseEvent, designerCanvas: IDesignerCanvas, container: IDesignItem, startPoint: IPoint, offsetInControl: IPoint, newPoint: IPoint, items: IDesignItem[]): void {
+  startPlace(event: MouseEvent, designerCanvas: IDesignerCanvas, container: IDesignItem, startPoint: IPoint, offsetInControl: IPoint, newPoint: IPoint, items: IDesignItem[]): void {
     const movableItems = getMovableItems(items);
     if (!movableItems.length) {
       return;
@@ -60,7 +55,7 @@ export class BpmnPlacementService extends DefaultPlacementService {
     super.startPlace(event, designerCanvas, container, startPoint, offsetInControl, newPoint, movableItems);
   }
 
-  override place(event: MouseEvent, designerCanvas: IDesignerCanvas, container: IDesignItem, startPoint: IPoint, offsetInControl: IPoint, newPoint: IPoint, items: IDesignItem[]): void {
+  place(event: MouseEvent, designerCanvas: IDesignerCanvas, container: IDesignItem, startPoint: IPoint, offsetInControl: IPoint, newPoint: IPoint, items: IDesignItem[]): void {
     const movableItems = getMovableItems(items);
     if (!movableItems.length) {
       return;
@@ -68,7 +63,7 @@ export class BpmnPlacementService extends DefaultPlacementService {
     super.place(event, designerCanvas, container, startPoint, offsetInControl, newPoint, movableItems);
   }
 
-  override moveElements(designItems: IDesignItem[], position: IPoint, absolute: boolean): void {
+  moveElements(designItems: IDesignItem[], position: IPoint, absolute: boolean): void {
     const movableItems = getMovableItems(designItems);
     if (!movableItems.length) {
       return;
@@ -76,7 +71,7 @@ export class BpmnPlacementService extends DefaultPlacementService {
     super.moveElements(movableItems, position, absolute);
   }
 
-  override enterContainer(container: IDesignItem, items: IDesignItem[], mode: 'normal' | 'drop'): void {
+  enterContainer(container: IDesignItem, items: IDesignItem[], mode: 'normal' | 'drop'): void {
     const movableItems = getMovableItems(items);
     if (!movableItems.length) {
       return;
@@ -84,7 +79,7 @@ export class BpmnPlacementService extends DefaultPlacementService {
     super.enterContainer(container, movableItems, mode);
   }
 
-  override leaveContainer(container: IDesignItem, items: IDesignItem[]): void {
+  leaveContainer(container: IDesignItem, items: IDesignItem[]): void {
     const movableItems = getMovableItems(items);
     if (!movableItems.length) {
       return;
@@ -92,7 +87,7 @@ export class BpmnPlacementService extends DefaultPlacementService {
     super.leaveContainer(container, movableItems);
   }
 
-  override finishPlace(event: MouseEvent, designerCanvas: IDesignerCanvas, container: IDesignItem, startPoint: IPoint, offsetInControl: IPoint, newPoint: IPoint, items: IDesignItem[]): void {
+  finishPlace(event: MouseEvent, designerCanvas: IDesignerCanvas, container: IDesignItem, startPoint: IPoint, offsetInControl: IPoint, newPoint: IPoint, items: IDesignItem[]): void {
     const movableItems = getMovableItems(items);
     if (!movableItems.length) {
       return;
