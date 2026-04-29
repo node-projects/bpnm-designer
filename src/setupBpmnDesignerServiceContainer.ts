@@ -46,8 +46,9 @@ import {
 import { BpmnParserService } from './services/BpmnParserService.js';
 import { BpmnContextPadExtensionProvider } from './extensions/BpmnContextPadExtension.js';
 import { rerouteConnectedBpmnEdges } from './services/BpmnConnectionRouting.js';
-import { associationEndpointTags, collaborationEndpointTags, flowNodeTags } from './services/bpmnRegistry.js';
+import { associationEndpointTags, collaborationEndpointTags, edgeTags, flowNodeTags } from './services/bpmnRegistry.js';
 import { ConnectNodesTool, associationIcon, dataInputAssociationIcon, dataOutputAssociationIcon, messageFlowIcon, sequenceFlowIcon } from './toolbar/ConnectNodesTool.js';
+import { BpmnConnectionEditExtensionProvider } from './extensions/BpmnConnectionEditExtension.js';
 import { bpmnElements } from './widgets/elements.js';
 import './widgets/index.js';
 
@@ -90,8 +91,19 @@ export function createBpmnDesignerServiceContainer() {
   serviceContainer.designerExtensions.set(ExtensionType.Permanent, []);
   serviceContainer.designerExtensions.set(ExtensionType.PrimarySelection, [
     new ElementDragTitleExtensionProvider(),
-    new PositionExtensionProvider(),
-    new ResizeExtensionProvider(true)
+    new class extends PositionExtensionProvider {
+      override shouldExtend(extensionManager: any, designerView: any, designItem: any) {
+        if (edgeTags.has(designItem.element?.localName)) return false;
+        return super.shouldExtend(extensionManager, designerView, designItem);
+      }
+    }(),
+    new class extends ResizeExtensionProvider {
+      override shouldExtend(extensionManager: any, designerView: any, designItem: any) {
+        if (edgeTags.has(designItem.element?.localName)) return false;
+        return super.shouldExtend(extensionManager, designerView, designItem);
+      }
+    }(true),
+    new BpmnConnectionEditExtensionProvider()
   ]);
   serviceContainer.designerExtensions.set(ExtensionType.Selection, [
     new SelectionDefaultExtensionProvider()
