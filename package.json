@@ -1,0 +1,24 @@
+{
+  "name": "bpnm-editor",
+  "version": "0.1.0",
+  "description": "BPMN XML designer built with web-component-designer",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "check": "tsc --noEmit",
+    "start": "web-dev-server --open",
+    "prepare-pages": "npm run build && node ./scripts/prepare-pages.mjs"
+  },
+  "dependencies": {
+    "@node-projects/base-custom-webcomponent": "0.46.0",
+    "@node-projects/web-component-designer": "^0.2.9",
+    "@node-projects/web-component-designer-codeview-monaco": "^0.2.0",
+    "es-module-shims": "^2.8.0",
+    "monaco-editor": "^0.55.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@web/dev-server": "^0.4.6",
+    "typescript": "^6.0.3"
+  }
+}

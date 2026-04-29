@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BPMN Editor</title>
+
+  <script type="esms-options">
+    {
+      "shimMode": true
+    }
+  </script>
+  <script src="./node_modules/es-module-shims/dist/es-module-shims.js"></script>
+  <script type="importmap-shim">
+    {
+      "imports": {
+        "monaco-editor": "./node_modules/monaco-editor/esm/vs/editor/editor.main.js",
+        "monaco-editor/": "./node_modules/monaco-editor/",
+        "@node-projects/base-custom-webcomponent": "./node_modules/@node-projects/base-custom-webcomponent/dist/index.js",
+        "@node-projects/base-custom-webcomponent/": "./node_modules/@node-projects/base-custom-webcomponent/",
+        "@node-projects/web-component-designer": "./node_modules/@node-projects/web-component-designer/dist/index.js",
+        "@node-projects/web-component-designer/": "./node_modules/@node-projects/web-component-designer/",
+        "@node-projects/web-component-designer-codeview-monaco": "./node_modules/@node-projects/web-component-designer-codeview-monaco/dist/widgets/codeView/code-view-monaco.js",
+        "@node-projects/web-component-designer-codeview-monaco/": "./node_modules/@node-projects/web-component-designer-codeview-monaco/"
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="./node_modules/monaco-editor/min/vs/editor/editor.main.css">
+
+  <style>
+    :root {
+      color-scheme: light;
+      --surface: #f5f2ea;
+      --surface-strong: #fffdf7;
+      --surface-deep: #1d2d2a;
+      --surface-muted: #dde7df;
+      --accent: #0b7a75;
+      --accent-soft: rgba(11, 122, 117, 0.12);
+      --ink: #11211f;
+      --ink-soft: #4f6460;
+      --outline: rgba(17, 33, 31, 0.12);
+      --shadow: 0 18px 36px rgba(17, 33, 31, 0.12);
+      font-family: "Segoe UI Variable Text", "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.9), transparent 30%),
+        linear-gradient(135deg, #efe7d8 0%, #f7f5ef 42%, #d9e8df 100%);
+      color: var(--ink);
+    }
+
+    body {
+      padding: 18px;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 240px minmax(0, 1fr) 320px;
+      grid-template-rows: auto minmax(0, 1fr);
+      grid-template-areas:
+        "header header header"
+        "palette canvas inspector";
+      gap: 14px;
+      width: 100%;
+      height: 100%;
+    }
+
+    .panel {
+      background: color-mix(in srgb, var(--surface-strong) 84%, white 16%);
+      border: 1px solid var(--outline);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(16px);
+    }
+
+    header {
+      grid-area: header;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 18px;
+      min-height: 78px;
+      background:
+        linear-gradient(120deg, rgba(11, 122, 117, 0.95), rgba(29, 45, 42, 0.94)),
+        linear-gradient(45deg, rgba(255, 255, 255, 0.08), transparent 55%);
+      color: white;
+    }
+
+    .title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .eyebrow {
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.68);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 650;
+      letter-spacing: -0.03em;
+    }
+
+    .subtitle {
+      color: rgba(255, 255, 255, 0.74);
+      font-size: 14px;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 11px 16px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 140ms ease, opacity 140ms ease, background-color 140ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    .button-primary {
+      background: white;
+      color: var(--surface-deep);
+    }
+
+    .button-secondary {
+      background: rgba(255, 255, 255, 0.14);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .file-name {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 12px;
+      min-width: 180px;
+      text-align: center;
+    }
+
+    .palette-panel {
+      grid-area: palette;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .canvas-panel {
+      grid-area: canvas;
+      min-width: 0;
+      min-height: 0;
+      position: relative;
+    }
+
+    .inspector-panel {
+      grid-area: inspector;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-title {
+      padding: 16px 18px 8px;
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+
+    .recent-section {
+      display: grid;
+      gap: 10px;
+      padding: 0 18px 16px;
+      border-bottom: 1px solid var(--outline);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0));
+    }
+
+    .recent-section-title {
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+
+    .recent-documents {
+      display: grid;
+      gap: 8px;
+    }
+
+    .recent-document {
+      width: 100%;
+      border-radius: 16px;
+      padding: 10px 12px;
+      border: 1px solid color-mix(in srgb, var(--accent) 22%, white 78%);
+      background: color-mix(in srgb, var(--accent-soft) 72%, white 28%);
+      color: var(--ink);
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+
+    .recent-document time {
+      color: var(--ink-soft);
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .recent-empty {
+      color: var(--ink-soft);
+      font-size: 12px;
+      line-height: 1.45;
+      padding-bottom: 4px;
+    }
+
+    #document-host {
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .drop-hint {
+      position: absolute;
+      inset: 18px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 26px;
+      border-radius: 22px;
+      border: 2px dashed rgba(11, 122, 117, 0.35);
+      background: rgba(255, 253, 247, 0.82);
+      color: var(--ink-soft);
+      text-align: center;
+      line-height: 1.5;
+      backdrop-filter: blur(10px);
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    .canvas-panel.drop-active .drop-hint {
+      display: flex;
+    }
+
+    node-projects-palette-view,
+    node-projects-web-component-designer-property-grid-with-header {
+      flex: 1;
+      min-height: 0;
+    }
+
+    @media (max-width: 1200px) {
+      .shell {
+        grid-template-columns: 240px minmax(0, 1fr);
+        grid-template-rows: auto minmax(300px, 1fr) 320px;
+        grid-template-areas:
+          "header header"
+          "palette canvas"
+          "inspector inspector";
+      }
+    }
+
+    @media (max-width: 820px) {
+      body {
+        padding: 10px;
+      }
+
+      .shell {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto 280px minmax(0, 1fr) 280px;
+        grid-template-areas:
+          "header"
+          "palette"
+          "canvas"
+          "inspector";
+      }
+
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .file-name {
+        width: 100%;
+      }
+    }
+  </style>
+
+  <script type="module">
+    window.MonacoEnvironment = {
+      getWorker(_, label) {
+        switch (label) {
+          case 'json':
+            return new Worker('./node_modules/monaco-editor/esm/vs/language/json/json.worker.js', { type: 'module' });
+          case 'css':
+          case 'scss':
+          case 'less':
+            return new Worker('./node_modules/monaco-editor/esm/vs/language/css/css.worker.js', { type: 'module' });
+          case 'html':
+          case 'handlebars':
+          case 'razor':
+          case 'xml':
+            return new Worker('./node_modules/monaco-editor/esm/vs/language/html/html.worker.js', { type: 'module' });
+          default:
+            return new Worker('./node_modules/monaco-editor/esm/vs/editor/editor.worker.js', { type: 'module' });
+        }
+      }
+    };
+  </script>
+</head>
+
+<body>
+  <div class="shell">
+    <header class="panel">
+      <div class="title-block">
+        <div class="eyebrow">BPMN XML Workspace</div>
+        <h1>Process Layout Designer</h1>
+        <div class="subtitle">Visual BPMN editing with synchronized XML split view</div>
+      </div>
+      <div class="actions">
+        <button class="button-primary" id="open-button" type="button">Open BPMN XML</button>
+        <button class="button-secondary" id="sample-button" type="button">Load Sample</button>
+        <button class="button-secondary" id="save-button" type="button">Download XML</button>
+        <button class="button-secondary" id="save-as-button" type="button">Save As</button>
+        <div class="file-name" id="file-name">sample.bpmn</div>
+      </div>
+    </header>
+
+    <section class="panel palette-panel">
+      <div class="panel-title">Palette</div>
+      <div class="recent-section">
+        <div class="recent-section-title">Recent</div>
+        <div class="recent-documents" id="recent-documents"></div>
+      </div>
+      <node-projects-palette-view id="palette-view"></node-projects-palette-view>
+    </section>
+
+    <section class="panel canvas-panel" id="canvas-panel">
+      <div id="document-host"></div>
+      <div class="drop-hint" id="drop-hint" hidden>Drop a BPMN or XML file here to load it into the split-view editor.</div>
+    </section>
+
+    <section class="panel inspector-panel">
+      <div class="panel-title">Inspector</div>
+      <node-projects-web-component-designer-property-grid-with-header
+        id="property-grid"></node-projects-web-component-designer-property-grid-with-header>
+    </section>
+  </div>
+
+  <input id="file-input" type="file" accept=".bpmn,.xml" hidden>
+
+  <script type="module-shim">
+    import './dist/initialize.js';
+  </script>
+</body>
+
+</html>
