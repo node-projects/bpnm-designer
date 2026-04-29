@@ -176,8 +176,6 @@ function syncLinkedAnnotationOffsets(instanceServiceContainer: InstanceServiceCo
 
 function moveLinkedAnnotations(instanceServiceContainer: InstanceServiceContainer, rootItems: IDesignItem[], nodeItemsById: Map<string, IDesignItem>, changedNodeIds: Set<string>, operationFinished: boolean) {
   const movedAnnotationIds = new Set<string>();
-  const undoGroup = operationFinished ? instanceServiceContainer.undoService.openGroup('move BPMN annotations') : null;
-  let changed = false;
 
   for (const item of rootItems) {
     const record = getLinkedAnnotationRecord(item, nodeItemsById);
@@ -197,15 +195,8 @@ function moveLinkedAnnotations(instanceServiceContainer: InstanceServiceContaine
 
     const sourceBounds = instanceServiceContainer.designerCanvas.getNormalizedElementCoordinates(record.sourceItem.element);
     if (applyLinkedAnnotationPosition(record.annotationItem, sourceBounds.x + offset.x, sourceBounds.y + offset.y, operationFinished)) {
-      changed = true;
       movedAnnotationIds.add(record.annotationId);
     }
-  }
-
-  if (undoGroup && changed) {
-    undoGroup.commit();
-  } else if (undoGroup) {
-    undoGroup.abort();
   }
 
   return movedAnnotationIds;
@@ -229,8 +220,7 @@ function rerouteEdgesForNodeIds(instanceServiceContainer: InstanceServiceContain
     return;
   }
 
-  let changeGroupOpened = false;
-  const undoGroup = operationFinished ? instanceServiceContainer.undoService.openGroup('reroute BPMN edges') : null;
+  let changed = false;
   const previewCleanup: Array<() => void> = [];
 
   for (const edgeItem of affectedEdges) {
@@ -252,7 +242,7 @@ function rerouteEdgesForNodeIds(instanceServiceContainer: InstanceServiceContain
     if (operationFinished) {
       edgeElement.setPreviewWaypoints?.(encoded);
       if (edgeItem.getAttribute('waypoints') !== encoded) {
-        changeGroupOpened = true;
+        changed = true;
         edgeItem.setAttribute('waypoints', encoded);
       }
       previewCleanup.push(() => edgeElement.setPreviewWaypoints?.(null));
@@ -261,13 +251,7 @@ function rerouteEdgesForNodeIds(instanceServiceContainer: InstanceServiceContain
     }
   }
 
-  if (undoGroup && changeGroupOpened) {
-    undoGroup.commit();
-  } else if (undoGroup) {
-    undoGroup.abort();
-  }
-
-  if (operationFinished && previewCleanup.length) {
+  if (operationFinished && changed && previewCleanup.length) {
     queueMicrotask(() => {
       for (const clearPreview of previewCleanup) {
         clearPreview();
@@ -296,7 +280,7 @@ export function rerouteConnectedBpmnEdges(instanceServiceContainer: InstanceServ
 
   if (operationFinished) {
     syncLinkedAnnotationOffsets(instanceServiceContainer, rootItems, nodeItemsById, affectedNodeIds);
-    queueMicrotask(() => rerouteEdgesForNodeIds(instanceServiceContainer, affectedNodeIds, true));
+    rerouteEdgesForNodeIds(instanceServiceContainer, affectedNodeIds, true);
     return;
   }
 
