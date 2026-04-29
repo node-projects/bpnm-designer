@@ -7,7 +7,6 @@ import {
   DefaultPropertyEditorTypesService,
   DefaultInstanceService,
   DefaultModelCommandService,
-  DeletionService,
   DesignItemDocumentPositionService,
   DesignItemService,
   DragDropService,
@@ -42,6 +41,7 @@ import {
   ZoomToolButtonProvider
 } from '@node-projects/web-component-designer';
 import { BpmnParserService } from './services/BpmnParserService.js';
+import { BpmnDeletionService } from './services/BpmnDeletionService.js';
 import { BpmnPlacementService } from './services/BpmnPlacementService.js';
 import { BpmnPropertyGroupsService } from './services/BpmnPropertyGroupsService.js';
 import { BpmnContextPadExtensionProvider } from './extensions/BpmnContextPadExtension.js';
@@ -71,7 +71,7 @@ export function createBpmnDesignerServiceContainer() {
   serviceContainer.register('propertyGroupsService', new BpmnPropertyGroupsService());
   serviceContainer.register('propertyService', new BaseCustomWebComponentPropertiesService(true));
   serviceContainer.register('designItemService', new DesignItemService());
-  serviceContainer.register('deletionService', new DeletionService());
+  serviceContainer.register('deletionService', new BpmnDeletionService());
   serviceContainer.register('elementsService', new PreDefinedElementsService('bpmn', bpmnElements));
 
   serviceContainer.register('undoService', (designerCanvas: IDesignerCanvas) => new UndoService(designerCanvas));
