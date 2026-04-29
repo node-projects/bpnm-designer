@@ -81,6 +81,10 @@ export abstract class BpmnNodeBase extends BaseCustomWebComponentConstructorAppe
       padding: 0 4px 2px;
       overflow-wrap: anywhere;
     }
+
+    svg {
+      pointer-events: none;
+    }
   `;
 
   static override readonly template = html`
