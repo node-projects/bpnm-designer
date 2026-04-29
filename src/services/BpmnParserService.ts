@@ -144,15 +144,19 @@ function ensureId(element: Element, prefix: string, usedIds: Set<string>) {
   return candidate;
 }
 
-function getBoundsForNode(item: IDesignItem): Bounds {
+function getRawBoundsForNode(item: IDesignItem): Bounds {
   const element = item.element as HTMLElement;
-  const hostBounds = {
+  return {
     x: parseCssPixels(element.style.left),
     y: parseCssPixels(element.style.top),
     width: parseCssPixels(element.style.width, element.offsetWidth),
     height: parseCssPixels(element.style.height, element.offsetHeight)
   };
-  return getElementConnectionBoundsFromHostBounds(hostBounds, element);
+}
+
+function getBoundsForNode(item: IDesignItem): Bounds {
+  const hostBounds = getRawBoundsForNode(item);
+  return getElementConnectionBoundsFromHostBounds(hostBounds, item.element as HTMLElement);
 }
 
 function getMeta(instanceServiceContainer: InstanceServiceContainer): BpmnDocumentMeta {
@@ -1047,7 +1051,7 @@ export class BpmnParserService implements IHtmlParserService, IHtmlWriterService
     writeLine(`    <bpmndi:BPMNPlane id="${escapeXml(meta.planeId)}" bpmnElement="${escapeXml(planeBpmnElement)}">`);
 
     for (const nodeItem of nodeItems) {
-      const bounds = getBoundsForNode(nodeItem);
+      const bounds = getRawBoundsForNode(nodeItem);
       const id = nodeIds.get(nodeItem)!;
       const colorAttributes = getDiagramColorAttributes(nodeItem.element as HTMLElement, true);
       writeLine(`      <bpmndi:BPMNShape id="${escapeXml(id)}_di" bpmnElement="${escapeXml(id)}"${colorAttributes.length ? ` ${colorAttributes.join(' ')}` : ''}>`);
