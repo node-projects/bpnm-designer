@@ -1,4 +1,4 @@
-import { CommandType, DocumentContainer, PaletteView, PropertyGridWithHeader } from '@node-projects/web-component-designer';
+import { CommandType, DocumentContainer, PaletteView, PropertyGrid } from '@node-projects/web-component-designer';
 import { CodeViewMonaco } from '@node-projects/web-component-designer-codeview-monaco';
 import { defaultBpmnDocument } from './defaultBpmnDocument.js';
 import { primeBpmnConnectionRouting } from './services/BpmnConnectionRouting.js';
@@ -32,7 +32,7 @@ const recentDocumentsStorageKey = 'bpnm-editor.recent-documents';
 const maxRecentDocuments = 6;
 
 const paletteView = document.getElementById('palette-view') as PaletteView;
-const propertyGrid = document.getElementById('property-grid') as PropertyGridWithHeader;
+const propertyGrid = document.getElementById('property-grid') as PropertyGrid;
 const documentHost = document.getElementById('document-host') as HTMLDivElement;
 const canvasPanel = document.getElementById('canvas-panel') as HTMLElement;
 const fileInput = document.getElementById('file-input') as HTMLInputElement;
