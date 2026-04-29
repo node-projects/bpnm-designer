@@ -171,11 +171,206 @@ const commandButtons = [
 ] as const;
 
 const runCommand = (command: CommandType) => {
+  hideHistoryMenu();
   if (!documentContainer.canExecuteCommand({ type: command })) {
     return;
   }
   documentContainer.executeCommand({ type: command });
   queueMicrotask(syncCommandButtonState);
+};
+
+type HistoryDirection = 'undo' | 'redo';
+
+const historyHoldDelayMs = 420;
+const historyMaxItems = 18;
+let historyDirection: HistoryDirection | null = null;
+let historyAnchorButton: HTMLButtonElement | null = null;
+let historyHoldTimer = 0;
+let historyHoldTriggered = false;
+
+const historyMenu = document.createElement('div');
+historyMenu.className = 'history-menu';
+historyMenu.hidden = true;
+historyMenu.innerHTML = '<div class="history-menu-title"></div><div class="history-menu-items"></div>';
+document.body.appendChild(historyMenu);
+
+const historyStyle = document.createElement('style');
+historyStyle.textContent = `
+  .history-menu {
+    position: fixed;
+    z-index: 2000;
+    min-width: 280px;
+    max-width: min(420px, calc(100vw - 24px));
+    max-height: min(52vh, 420px);
+    overflow: auto;
+    border-radius: 14px;
+    border: 1px solid rgba(17, 33, 31, 0.18);
+    background: #fffef9;
+    box-shadow: 0 20px 44px rgba(16, 33, 31, 0.24);
+    padding: 10px;
+  }
+  .history-menu-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #415754;
+    padding: 4px 6px 8px;
+  }
+  .history-menu-items {
+    display: grid;
+    gap: 4px;
+  }
+  .history-menu-item {
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: #132423;
+    padding: 8px 10px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+    width: 100%;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+  }
+  .history-menu-item:hover {
+    background: rgba(11, 122, 117, 0.11);
+  }
+  .history-menu-item-count {
+    font-size: 11px;
+    font-weight: 700;
+    color: #0b7a75;
+  }
+  .history-menu-empty {
+    color: #5f7370;
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+`;
+document.head.appendChild(historyStyle);
+
+const executeHistorySteps = (direction: HistoryDirection, steps: number) => {
+  const command = direction === 'undo' ? CommandType.undo : CommandType.redo;
+  for (let i = 0; i < steps; i += 1) {
+    if (!documentContainer.canExecuteCommand({ type: command })) {
+      break;
+    }
+    documentContainer.executeCommand({ type: command });
+  }
+  queueMicrotask(syncCommandButtonState);
+};
+
+const getHistoryEntries = (direction: HistoryDirection) => {
+  const undoService = documentContainer.instanceServiceContainer.undoService;
+  const entries = direction === 'undo'
+    ? Array.from(undoService.getUndoEntries(historyMaxItems))
+    : Array.from(undoService.getRedoEntries(historyMaxItems));
+  return entries.map((entry, index) => ({
+    title: entry.title?.trim() || 'Change',
+    steps: index + 1
+  }));
+};
+
+function hideHistoryMenu() {
+  historyMenu.hidden = true;
+  historyDirection = null;
+  historyAnchorButton = null;
+}
+
+const renderHistoryMenu = (direction: HistoryDirection, anchorButton: HTMLButtonElement) => {
+  const title = historyMenu.querySelector('.history-menu-title') as HTMLDivElement;
+  const itemsContainer = historyMenu.querySelector('.history-menu-items') as HTMLDivElement;
+  const entries = getHistoryEntries(direction);
+
+  title.textContent = direction === 'undo' ? 'Undo History' : 'Redo History';
+  itemsContainer.replaceChildren();
+
+  if (!entries.length) {
+    const empty = document.createElement('div');
+    empty.className = 'history-menu-empty';
+    empty.textContent = direction === 'undo' ? 'Nothing to undo.' : 'Nothing to redo.';
+    itemsContainer.appendChild(empty);
+  } else {
+    for (const entry of entries) {
+      const itemButton = document.createElement('button');
+      itemButton.type = 'button';
+      itemButton.className = 'history-menu-item';
+
+      const count = document.createElement('span');
+      count.className = 'history-menu-item-count';
+      count.textContent = `${entry.steps}`;
+
+      const label = document.createElement('span');
+      label.textContent = entry.title;
+
+      itemButton.append(count, label);
+      itemButton.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        executeHistorySteps(direction, entry.steps);
+        hideHistoryMenu();
+      });
+
+      itemsContainer.appendChild(itemButton);
+    }
+  }
+
+  historyMenu.hidden = false;
+  historyDirection = direction;
+  historyAnchorButton = anchorButton;
+
+  const rect = anchorButton.getBoundingClientRect();
+  const left = Math.min(Math.max(8, rect.left), Math.max(8, window.innerWidth - 320));
+  historyMenu.style.left = `${left}px`;
+  historyMenu.style.top = `${Math.min(window.innerHeight - 16, rect.bottom + 8)}px`;
+};
+
+const attachHistoryHoldBehavior = (button: HTMLButtonElement, direction: HistoryDirection, command: CommandType) => {
+  button.addEventListener('pointerdown', event => {
+    if (button.disabled || event.button !== 0) {
+      return;
+    }
+
+    historyHoldTriggered = false;
+    window.clearTimeout(historyHoldTimer);
+    historyHoldTimer = window.setTimeout(() => {
+      historyHoldTriggered = true;
+      renderHistoryMenu(direction, button);
+    }, historyHoldDelayMs);
+  });
+
+  button.addEventListener('pointerup', event => {
+    if (event.button !== 0) {
+      return;
+    }
+
+    window.clearTimeout(historyHoldTimer);
+    if (!historyHoldTriggered) {
+      runCommand(command);
+    }
+  });
+
+  button.addEventListener('pointercancel', () => {
+    window.clearTimeout(historyHoldTimer);
+  });
+
+  button.addEventListener('pointerleave', event => {
+    if ((event.buttons & 1) !== 1) {
+      window.clearTimeout(historyHoldTimer);
+    }
+  });
+
+  // Keep keyboard activation behavior (Enter/Space) when detail is 0.
+  button.addEventListener('click', event => {
+    const mouseEvent = event as MouseEvent;
+    if (mouseEvent.detail === 0) {
+      runCommand(command);
+    }
+  });
 };
 
 function syncCommandButtonState() {
@@ -239,8 +434,8 @@ saveButton.onclick = () => {
 saveAsButton.onclick = () => {
   void saveCurrentDocumentAs();
 };
-undoButton.onclick = () => runCommand(CommandType.undo);
-redoButton.onclick = () => runCommand(CommandType.redo);
+attachHistoryHoldBehavior(undoButton, 'undo', CommandType.undo);
+attachHistoryHoldBehavior(redoButton, 'redo', CommandType.redo);
 copyButton.onclick = () => runCommand(CommandType.copy);
 pasteButton.onclick = () => runCommand(CommandType.paste);
 selectAllButton.onclick = () => runCommand(CommandType.selectAll);
@@ -310,6 +505,40 @@ document.addEventListener('drop', event => {
   }
 });
 
+document.addEventListener('pointerdown', event => {
+  if (historyMenu.hidden) {
+    return;
+  }
+
+  const target = event.target as Node | null;
+  if (!target) {
+    hideHistoryMenu();
+    return;
+  }
+
+  if (historyMenu.contains(target)) {
+    return;
+  }
+
+  if (undoButton.contains(target) || redoButton.contains(target)) {
+    return;
+  }
+
+  hideHistoryMenu();
+});
+
+window.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !historyMenu.hidden) {
+    hideHistoryMenu();
+  }
+});
+
+window.addEventListener('resize', () => {
+  if (!historyMenu.hidden && historyDirection && historyAnchorButton) {
+    renderHistoryMenu(historyDirection, historyAnchorButton);
+  }
+});
+
 documentContainer.instanceServiceContainer.onContentChanged.on(() => {
   if (suppressRecentSync) {
     return;
@@ -331,6 +560,9 @@ documentContainer.instanceServiceContainer.selectionService.onSelectionChanged.o
 
 documentContainer.instanceServiceContainer.undoService.onTransaction.on(() => {
   syncCommandButtonState();
+  if (!historyMenu.hidden && historyDirection && historyAnchorButton) {
+    renderHistoryMenu(historyDirection, historyAnchorButton);
+  }
 });
 
 window.addEventListener('focus', () => {
